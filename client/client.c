@@ -14,7 +14,7 @@ struct hostent *server;
 
 char buffer[256];
 char temp;
-portno = 5001;
+portno = 5004;
 
 
 int iSetOption = 1;
@@ -48,9 +48,22 @@ if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
 	  exit(1);
 	}
 
+
+
+
+
+//username and password check 
 char user[256],pass[256],message[256];
+int length;
+
+
+
 printf("Enter username : ");
-scanf("%s",user);
+bzero(user,256);
+//scanf("%s",user);
+fgets(user,255,stdin);
+length=strlen(user);
+user[length-1]='\0';
 write(sockfd,user,strlen(user));
 
 bzero(buffer,256);
@@ -60,17 +73,52 @@ read(sockfd,buffer,255);
 if(strcmp(buffer,"username correct")==0)		
 {
 	printf("Enter password : ");
-	scanf("%s",pass);
+	bzero(pass,256);
+	//scanf("%s",pass);
+	fgets(pass,255,stdin);
+	length=strlen(pass);
+	pass[length-1]='\0';
 	write(sockfd,pass,strlen(pass));
 	bzero(message,256);
 	read(sockfd,message,255);
 	printf("%s",message);
 }
 else
+{
 	printf("%s",buffer);		
+}
 
 
+char command[256],command2[256];
+char resp[256],op[256],empty[256]="";
 
+if(strcmp(message,"230 Login successful.")==0)
+{	
+do
+{
 
+printf("\nftp> ");
+//bzero(command,256);
+//scanf("%s",command);
+//fgets(command,255,stdin);
+fgets(command,255,stdin);
+length=strlen(command);
+command[length-1]='\0';
+//scanf("%[^\n]s",command);
+write(sockfd,command,strlen(command));
+
+bzero(resp,256);
+read(sockfd,resp,255);
+printf("%s",resp);
+
+write(sockfd,empty,1);
+
+bzero(op,256);
+read(sockfd,op,255);
+printf("%s",op);
+
+}while(strcmp(command,"bye")!=0);
+
+}
 return 0;
 }
