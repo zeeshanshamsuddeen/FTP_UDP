@@ -4,9 +4,14 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <dirent.h>
-
 #include <string.h>
 
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/sendfile.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 int main() 
 {
 int sockfd, newsockfd, portno, clilen;
@@ -22,6 +27,9 @@ int  n;
 int temps=0;
 int length,i,check=0; 
 int iSetOption = 1;
+int leng[10],pause[10];
+int srcFD,destFD,nbread,nbwrite;
+char *buff[1024];
 
 /* First call to socket() function */
 sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -73,7 +81,7 @@ if (newsockfd < 0)
 
 //username and password check
 FILE *fp;
-fp=fopen("userlist.txt","r");
+fp=fopen("/home/zeeshan/FTP_UDP/obj/userlist.txt","r");
 temps=0;
 bzero(user,256);
 read(newsockfd,user,255);
@@ -123,7 +131,6 @@ bzero(command,256);
 read(newsockfd,command,255);
 check=0;
 
-
 //to display files in server directory ie. "ls"
 if(strcmp(command,"ls")==0)
 {
@@ -131,7 +138,7 @@ if(strcmp(command,"ls")==0)
     DIR *d;
     struct dirent *dir;
     bzero(temp,256);
-    strcpy(temp,"./server");
+    strcpy(temp,"/home/zeeshan/FTP_UDP/obj/server");
     strcat(temp,spath);
     d = opendir(temp);   
     if (d)
@@ -164,7 +171,7 @@ if(command[0]=='c'&&command[1]=='d'&&command[3]!='.'&&command[3]!=' '&&strlen(co
   strcat(spath,"/");
   DIR *d;
   bzero(temp,256);
-  strcpy(temp,"./server");
+  strcpy(temp,"/home/zeeshan/FTP_UDP/obj/server/");
   strcat(temp,spath);
 
   d = opendir(temp);   
@@ -230,6 +237,124 @@ if(command[0]=='c'&&command[1]=='d'&&command[2]==' '&&command[3]=='.'&&command[4
 
 
 }
+
+
+//to recieve files send by client ie. "put xxx"
+if(command[0]=='p'&&command[1]=='u'&&command[2]=='t'&&strlen(command)>4)
+{
+  check=1;
+  write(newsockfd,empty,1);
+  bzero(temp1,256);
+  bzero(temp,256);
+  bzero(leng,10);
+  bzero(pause,10);
+  pause[0]=0;
+  /*
+    used to indicate whether client is sending data to server
+    pause = -1 ::: no such file exists
+    pause = 0  ::: sending data
+    pause = 1  ::: end of data  
+  */
+  strncpy(temp1,command+4,strlen(command));    //copy command[4] onwards to temp1
+
+  strcpy(temp,"/home/zeeshan/FTP_UDP/obj/server/");
+  strcat(temp,spath);
+  strcat(temp,temp1);
+
+
+  read(newsockfd,pause,10);
+  if(pause[0]==-1)
+  {
+    write(newsockfd,empty,1);
+  }
+  else
+  {
+    /*
+      Open destination file with respective flags & modes
+      O_CREAT & O_TRUNC is to truncate existing file or create a new file
+      S_IXXXX are file permissions for the user,groups & others
+    */
+    destFD = open(temp,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+
+    while(pause[0]==0)
+    {   
+      write(newsockfd,empty,1);
+      bzero(leng,10);
+      read(newsockfd,leng,10);
+      write(newsockfd,empty,1);   
+      read(newsockfd,buff,1024);
+      write(newsockfd,empty,1);
+      
+      write(destFD,buff,leng[0]);     //write data to destination file
+      
+      read(newsockfd,pause,10);
+
+
+    }
+   close(destFD);
+   write(newsockfd,empty,1);
+  }
+
+} 
+
+
+
+//to send files to client machine ie. "get xxx"
+if(command[0]=='g'&&command[1]=='e'&&command[2]=='t'&&strlen(command)>4)
+{
+  check=1;
+
+  bzero(temp1,256);
+  bzero(temp,256);
+  bzero(leng,10);
+  pause[0]=0;   
+  /*
+    used to indicate whether client is sending data to server
+    pause = -1 ::: no such file exists
+    pause = 0  ::: sending data
+    pause = 1  ::: end of data  
+  */
+  strncpy(temp1,command+4,strlen(command));    //copy command[4] onwards to temp
+
+  strcpy(temp,"/home/zeeshan/FTP_UDP/obj/server/");
+  strcat(temp,spath);
+  strcat(temp,temp1);
+
+  /*Open source file*/
+  srcFD = open(temp,O_RDONLY);
+  if(srcFD==-1)
+  {
+    pause[0]=-1;
+    write(newsockfd,pause,10);  
+  }
+  else
+  {
+    /*Start reading data from src file till it reaches EOF*/
+    while((nbread = read(srcFD,buff,1024)) > 0)
+    {
+
+      write(newsockfd,pause,10);
+      bzero(temp1,256);
+      read(newsockfd,temp1,255);
+      
+      leng[0]=nbread; 
+      write(newsockfd,leng,10);
+      read(newsockfd,temp,255);  
+      write(newsockfd,buff,nbread) ;
+      read(newsockfd,temp,255);
+    }
+
+    //data transfer complete
+    pause[0]=1;           //end of data
+    write(newsockfd,pause,10);
+
+    close(srcFD);
+  }
+
+}  
+
+
+
 
 
 

@@ -26,10 +26,14 @@ char resp[256],op[256],empty[256]="";
 char temp[256],temp1[256],lpath[256]="/",names[256];
 int length,i;
 int iSetOption = 1;
+int leng[10],pause[10];
 
 char buffer[256];
 portno = 5004;
+DIR *d;
 
+int srcFD,destFD,nbread,nbwrite;
+char *buff[1024];
 
 /* Create a socket point */
 sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -112,11 +116,10 @@ command[length-1]='\0';
 if(strcmp(command,"!ls")==0)
 {
 	//to display files in client directory ie. "!ls"
-    DIR *d;
     struct dirent *dir;
     bzero(temp,256);
     bzero(names,256);
-    strcpy(temp,"./client");
+    strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
     strcat(temp,lpath);
     d = opendir(temp);   
     if (d)
@@ -143,22 +146,22 @@ else if(command[0]=='l'&&command[1]=='c'&&command[2]=='d'&&command[3]==' '&&comm
 	strncpy(temp,command+4,strlen(command));    //copy command[4] onwards to temp
 	strcat(lpath,temp);
 	strcat(lpath,"/");
-	DIR *d;
+	
 	bzero(temp,256);
-	strcpy(temp,"./client");
+	strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
 	strcat(temp,lpath);
 
 	d = opendir(temp);   
 	if (d)
 	{
 		printf("Local directory now ");
-	printf("%s",lpath);
-	closedir(d);
+		printf("%s",lpath);
+		closedir(d);
 	}
 	else
 	{ 
 		printf("local : No such file or directory ");
-	strcpy(lpath,temp1);
+		strcpy(lpath,temp1);
 	}  
 
 
@@ -178,9 +181,7 @@ else if(command[0]=='!'&&command[1]=='p'&&command[2]=='w'&&command[3]=='d'&&strl
 }
 else if(command[0]=='l'&&command[1]=='c'&&command[2]=='d'&&command[3]==' '&&command[4]=='.'&&command[5]=='.')
 {
-
-
-	//to change back to previous server directory ie. "lcd .."
+	//to change back to previous client directory ie. "lcd .."
 	if(strcmp(lpath,"/")!=0)
 	{
 	length=strlen(lpath);
@@ -199,9 +200,133 @@ else if(command[0]=='l'&&command[1]=='c'&&command[2]=='d'&&command[3]==' '&&comm
 
 
 }
+else if(command[0]=='p'&&command[1]=='u'&&command[2]=='t'&&strlen(command)>4)
+{
+	// to send a file from client directory to server to directory
+	write(sockfd,command,strlen(command));
+	bzero(temp,256);
+	read(sockfd,temp,255);
+	bzero(temp1,256);
+	bzero(temp,256);
+	bzero(leng,10);
+	pause[0]=0;		
+	/*
+		used to indicate whether client is sending data to server
+		pause = -1 ::: no such files exists
+		pause = 0  ::: sending data
+		pause = 1  ::: end of data	
+	*/
+	strncpy(temp1,command+4,strlen(command));    //copy command[4] onwards to temp
+
+	strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
+	strcat(temp,lpath);
+	strcat(temp,temp1);
+
+	/*Open source file*/
+	srcFD = open(temp,O_RDONLY);
+	if(srcFD==-1)
+	{
+		pause[0]=-1;
+		write(sockfd,pause,10);
+		read(sockfd,temp,255);
+		printf("invalid filename ");
+	}
+	else
+	{
+		/*Start reading data from src file till it reaches EOF*/
+		while((nbread = read(srcFD,buff,1024)) > 0)
+		{
+
+			write(sockfd,pause,10);
+			bzero(temp1,256);
+			read(sockfd,temp1,255);
+			
+			leng[0]=nbread;	
+			write(sockfd,leng,10);
+			read(sockfd,temp,255);	
+			write(sockfd,buff,nbread) ;
+			read(sockfd,temp,255);
+		}
+
+		//data transfer complete
+		pause[0]=1;						//end of data
+		write(sockfd,pause,10);
+		read(sockfd,temp,255);
+		close(srcFD);
+		printf("Transfer complete");
+	}
+
+
+
+
+
+
+}
+else if(command[0]=='g'&&command[1]=='e'&&command[2]=='t'&&strlen(command)>4)
+{
+	// to recieve a file from server directory to client directory
+	write(sockfd,command,strlen(command));
+
+	bzero(temp1,256);
+	bzero(temp,256);
+	bzero(leng,10);
+	bzero(pause,10);
+	pause[0]=0;
+	/*
+	used to indicate whether client is sending data to server
+	pause = -1 ::: no such file exists
+	pause = 0  ::: sending data
+	pause = 1  ::: end of data  
+	*/
+	strncpy(temp1,command+4,strlen(command));    //copy command[4] onwards to temp1
+
+	strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
+	strcat(temp,lpath);
+	strcat(temp,temp1);
+
+
+	read(sockfd,pause,10);
+	if(pause[0]==-1)
+	{
+		printf("invalid filename ");
+	}
+	else
+	{
+		/*
+			Open destination file with respective flags & modes
+			O_CREAT & O_TRUNC is to truncate existing file or create a new file
+			S_IXXXX are file permissions for the user,groups & others
+		*/
+		destFD = open(temp,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+
+		while(pause[0]==0)
+		{   
+		  write(sockfd,empty,1);
+		  bzero(leng,10);
+		  read(sockfd,leng,10);
+		  write(sockfd,empty,1);   
+		  read(sockfd,buff,1024);
+		  write(sockfd,empty,1);
+		  
+		  write(destFD,buff,leng[0]);     //write data to destination file
+		  
+		  read(sockfd,pause,10);
+
+
+		}
+		close(destFD);
+	    printf("Transfer complete");
+	}
+
+
+
+
+
+
+}	
 else
 	{
-		// If the entered command is not a local directory based command
+		// If the entered command is not a local machine based command
 		write(sockfd,command,strlen(command));
 
 		bzero(resp,256);
