@@ -20,12 +20,17 @@ int main()
 int sockfd, portno, n;
 struct sockaddr_in serv_addr;
 struct hostent *server;
+char user[256],pass[256],message[256];
+char command[256],command2[256];
+char resp[256],op[256],empty[256]="";
+char temp[256],temp1[256],lpath[256]="/",names[256];
+int length,i;
+int iSetOption = 1;
 
 char buffer[256];
 portno = 5004;
 
 
-int iSetOption = 1;
 /* Create a socket point */
 sockfd = socket(AF_INET, SOCK_STREAM, 0);
 setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR,&iSetOption,sizeof(iSetOption));
@@ -61,14 +66,6 @@ if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
 
 
 //username and password check 
-char user[256],pass[256],message[256];
-char command[256],command2[256];
-char resp[256],op[256],empty[256]="";
-char temp[256],temp1[256],lpath[256]="/",names[256];
-int length,i;
-
-
-
 printf("Enter username : ");
 bzero(user,256);
 fgets(user,255,stdin);
