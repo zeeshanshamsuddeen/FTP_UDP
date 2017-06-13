@@ -4,6 +4,8 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <dirent.h>
+#include <arpa/inet.h>
+
 
 #include <string.h>
 
@@ -15,335 +17,330 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
-int main()
+void readsocket(int sockfd,char buffer[])
 {
-int sockfd, portno, n;
-struct sockaddr_in serv_addr;
-struct hostent *server;
-char user[256],pass[256],message[256];
-char command[256],command2[256];
-char resp[256],op[256],empty[256]="";
-char temp[256],temp1[256],lpath[256]="/",names[256];
-int length,i;
-int iSetOption = 1;
-int leng[10],pause[10];
-
-char buffer[256];
-portno = 5004;
-DIR *d;
-
-int srcFD,destFD,nbread,nbwrite;
-char *buff[1024];
-
-/* Create a socket point */
-sockfd = socket(AF_INET, SOCK_STREAM, 0);
-setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR,&iSetOption,sizeof(iSetOption));
-
-if (sockfd < 0)
-	 {
-	  perror("ERROR opening socket");
-	  exit(1);
-	 }
-
-server = gethostbyname("127.0.0.1");			// returns pointer to corresponding host
-
-if (server == NULL) 
-	{
-	  fprintf(stderr,"ERROR, no such host\n");
-	  exit(0);
-	}
-
-bzero((char *) &serv_addr, sizeof(serv_addr));
-serv_addr.sin_family = AF_INET;
-bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-serv_addr.sin_port = htons(portno);
-
-/* Now connect to the server */
-if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) 
-	{
-	  perror("ERROR connecting");
-	  exit(1);
-	}
-
-
-
-
-
-//username and password check 
-printf("Enter username : ");
-bzero(user,256);
-fgets(user,255,stdin);
-length=strlen(user);
-user[length-1]='\0';
-write(sockfd,user,strlen(user));
-bzero(buffer,256);
-read(sockfd,buffer,255);
-
-
-//if the entered username is username is correct
-if(strcmp(buffer,"username correct")==0)	
-{
-	printf("Enter password : ");
-	bzero(pass,256);
-	//scanf("%s",pass);
-	fgets(pass,255,stdin);
-	length=strlen(pass);
-	pass[length-1]='\0';
-	write(sockfd,pass,strlen(pass));
-	bzero(message,256);
-	read(sockfd,message,255);
-	printf("%s",message);
-}
-else
-{
-	printf("%s",buffer);		
-}
-
-
-
-//if successfull authentication
-if(strcmp(message,"230 Login successful.")==0)
-{	
-do
-{
-
-printf("\nftp> ");
-fgets(command,255,stdin);
-length=strlen(command);
-command[length-1]='\0';
-
-
-if(strcmp(command,"!ls")==0)
-{
-	//to display files in client directory ie. "!ls"
-    struct dirent *dir;
-    bzero(temp,256);
-    bzero(names,256);
-    strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
-    strcat(temp,lpath);
-    d = opendir(temp);   
-    if (d)
+    bzero(buffer,256);
+    char temp[1];
+    bzero(temp,1);
+    int i=0;
+    //printf("reading\n");
+    do
     {
-        while ((dir = readdir(d)) != NULL)
-        {
-            strcat(names,dir->d_name);
-            strcat(names,"\n"); 
-        }
-        closedir(d);
-    }
-     printf("%s",names);
+      read(sockfd,temp,1);
+      buffer[i]=temp[0];
+      i++;
+      //printf("%c",temp[0] );
+     // if(temp[0]=='\n')
+     // printf("new line received" );
+    }while(temp[0]!='\n');
 
+   
+      
+    read(sockfd,temp,1);
+     //if(temp[0]=='\n')
+     // printf("new line received" );
 
-
-
-
+      
+    if(temp[0]!='\0')
+      {
+        printf("ERROR no /0 in read after %s",buffer);
+        exit(1);
+      }
+    buffer[i-1]='\0';  
+  
+  /* At the end of this function, buffer will be a normal string with \0 at the end  */  
 }
-else if(command[0]=='l'&&command[1]=='c'&&command[2]=='d'&&command[3]==' '&&command[4]!='.'&&command[4]!=' '&&strlen(command)>4)
+
+void writesocket(int sockfd,char buffer[])
 {
-	//to change client directory ie. "!lcd xx"
-	bzero(temp,256);
-	strcpy(temp1,lpath);
-	strncpy(temp,command+4,strlen(command));    //copy command[4] onwards to temp
-	strcat(lpath,temp);
-	strcat(lpath,"/");
-	
-	bzero(temp,256);
-	strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
-	strcat(temp,lpath);
+	int length;	
+	length=strlen(buffer);
+//	  buffer[length-1]='\n';
+	//printf("%c",buffer[5]);
+	//printf("%d",length);
 
-	d = opendir(temp);   
-	if (d)
-	{
-		printf("Local directory now ");
-		printf("%s",lpath);
-		closedir(d);
-	}
-	else
-	{ 
-		printf("local : No such file or directory ");
-		strcpy(lpath,temp1);
-	}  
-
-
-
-
-
-
-
-}
-else if(command[0]=='!'&&command[1]=='p'&&command[2]=='w'&&command[3]=='d'&&strlen(command)<5)
-{
-	//to show current client directory ie. "!pwd"
-	printf("%s",lpath);
-
-
-
-}
-else if(command[0]=='l'&&command[1]=='c'&&command[2]=='d'&&command[3]==' '&&command[4]=='.'&&command[5]=='.')
-{
-	//to change back to previous client directory ie. "lcd .."
-	if(strcmp(lpath,"/")!=0)
-	{
-	length=strlen(lpath);
-	for(i=length-2;i>=0;i--)
-	{
-	  if(lpath[i]=='/')
-	    break;
-	}
-	strcpy(temp,lpath);
-	bzero(lpath,256);
-	strncpy(lpath,temp,i+1);
-	} 
-	printf("Local directory now %s",lpath);
-
-
-
-
-}
-else if(command[0]=='p'&&command[1]=='u'&&command[2]=='t'&&strlen(command)>4)
-{
-	// to send a file from client directory to server to directory
-	write(sockfd,command,strlen(command));
-	bzero(temp,256);
-	read(sockfd,temp,255);
-	bzero(temp1,256);
-	bzero(temp,256);
-	bzero(leng,10);
-	pause[0]=0;		
+	buffer[length]='\n';
+	buffer[length+1]='\0';
+	length++;
 	/*
-		used to indicate whether client is sending data to server
-		pause = -1 ::: no such files exists
-		pause = 0  ::: sending data
-		pause = 1  ::: end of data	
+	printf("%d",length);
+	for(int i=0;i<=length;i++)
+	if(buffer[i]=='\n')
+		printf("new line in %dth position\n",i );
+	for(int i=0;i<=length;i++)
+	if(buffer[i]=='\0')
+		printf("new zero in %dth position",i );
 	*/
-	strncpy(temp1,command+4,strlen(command));    //copy command[4] onwards to temp
+	write(sockfd,buffer,length+1);
 
-	strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
-	strcat(temp,lpath);
-	strcat(temp,temp1);
+}
+void readline(char buffer[])
+{
 
-	/*Open source file*/
-	srcFD = open(temp,O_RDONLY);
-	if(srcFD==-1)
+	int length=0;
+	bzero(buffer,256);
+	fgets(buffer,255,stdin);
+	length=strlen(buffer);
+	buffer[length-1]='\0';
+	
+}
+
+int main(int argc,char *argv[])
+{
+	int sockfd, portno, n;
+	struct sockaddr_in serv_addr;
+	struct hostent *server;
+	struct in_addr inp;
+	struct stat fileStat;
+
+
+	char user[256],pass[256],message[256];
+	char command[256],command2[256],response[256],attribute[256];
+	char l_command[256],enquiry[256];
+	char resp[256],op[256],empty[256]="";
+	char temp[256],temp1[256],lpath[256]="/",names[256];
+	int length,i;
+	int code;
+	int iSetOption = 1;
+	int leng[10],pause[10];
+	int filesize;
+	int auth_flag=0,af[1];
+
+	char buffer[256];
+	portno = 5001;
+	DIR *d;
+
+	int srcFD,destFD,nbread,nbwrite;
+	char *buff[1024];
+
+	/* Create a socket point */
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd < 0)
 	{
-		pause[0]=-1;
-		write(sockfd,pause,10);
-		read(sockfd,temp,255);
-		printf("invalid filename ");
+		perror("ERROR opening socket");
+		exit(1);
 	}
-	else
+
+	setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR,&iSetOption,sizeof(iSetOption));
+
+
+
+	if (inet_aton((argv[1]),&inp) ==0) 		// returns pointer to corresponding host
 	{
-		/*Start reading data from src file till it reaches EOF*/
-		while((nbread = read(srcFD,buff,1024)) > 0)
+		fprintf(stderr,"ERROR, no such host\n");
+		exit(0);
+	}
+
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(portno);
+	bcopy((char *)&inp , (char *)&serv_addr.sin_addr.s_addr, sizeof(inp));
+
+	/* Now connect to the server */
+	if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) 
+	{
+		perror("ERROR connecting");
+		exit(1);
+	}
+
+	do
+	{
+				
+		bzero(message,256);
+		bzero(command,256);
+		bzero(attribute,256);
+
+		readline(message);
+		sscanf(message,"%s%s",command,attribute);
+	
+
+		if(strcmp(command,"!ls")==0&&strcmp(attribute,"\0\n")==0&&message[4]!=' '&&auth_flag==2)
+		{
+			char buff[BUFSIZ];
+			bzero(l_command,256);
+			strcpy(l_command,"ls /home/zeeshan/FTP_UDP/obj/client");
+			strcat(l_command,lpath);
+
+			FILE *fp = popen(l_command,"r");
+			//check whether the filename exists in the server directory
+			while ( fgets( buff, BUFSIZ, fp ) != NULL ) 
+			{
+				bzero(response,256);
+				length=0;
+				length=strlen(buff);
+				buff[length-1]='\0';
+				printf("%s\n",buff);
+			}
+			pclose(fp);
+			code=129;
+			strcpy(message,"List of files completed");
+		}
+		else if(strcmp(command,"lcd")==0&&strcmp(attribute,"..")!=0&&message[4]!=' '&&message[4]!='.'&&auth_flag==2)
+		{
+			strncpy(attribute,message+4,strlen(message));
+			bzero(l_command,256);
+			strcpy(l_command,"/home/zeeshan/FTP_UDP/obj/client");
+			strcat(l_command,lpath);
+			strcat(l_command,attribute);
+
+			//check whether the FOLDER (path is in l_command) exists in the server directory
+			if(stat(l_command,&fileStat)==0 && S_ISDIR(fileStat.st_mode))  
+			  {
+			    strcat(lpath,attribute);
+			    strcat(lpath,"/");
+			    code=139;
+			    strcpy(message,"Server directory changed");
+			  }  
+			else
+			 {
+			 	code=131;
+			 	strcpy(message,"No such file exists");
+			 }
+		
+		}
+		else if(strcmp(command,"!pwd")==0&&strcmp(attribute,"\0\n")==0&&message[4]!=' '&&auth_flag==2)
+		{
+			code=149;
+			strcpy(message,lpath);
+		}
+		else if(strcmp(command,"lcd")==0&&strcmp(attribute,"..")==0&&auth_flag==2)
+		{
+			/*
+				From lpath, all the charecters after the rightmost '/' is cleared
+			*/
+			if(strcmp(lpath,"/")!=0)
+	        {
+	          length=0;
+	          length=strlen(lpath);
+	          for(i=length-2;i>=0;i--)
+	          {
+	            if(lpath[i]=='/')
+	              break;
+	          }
+	          strcpy(temp,lpath);
+	          bzero(lpath,256);
+	          strncpy(lpath,temp,i+1);
+	        } 
+	        code=159;
+	        strcpy(message,"Directory successfully changed");
+
+		}
+		else if(strcmp(command,"put")==0&&auth_flag==2)
 		{
 
-			write(sockfd,pause,10);
-			bzero(temp1,256);
-			read(sockfd,temp1,255);
+			strncpy(attribute,message+4,strlen(message));
 			
-			leng[0]=nbread;	
-			write(sockfd,leng,10);
-			read(sockfd,temp,255);	
-			write(sockfd,buff,nbread) ;
-			read(sockfd,temp,255);
+			strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
+			strcat(temp,lpath);
+			strcat(temp,attribute);
+
+			//opens the directory (path is in temp)
+			srcFD = open(temp,O_RDONLY);
+			if(srcFD==-1)
+			{
+				code=321;
+				strcpy(message,"Invalid filename");
+			}
+			else
+			{
+				writesocket(sockfd,message);
+				stat(temp, &fileStat);
+
+				//size of file is calculated in filesize and sent to the server
+				filesize = fileStat.st_size;
+				sprintf(message,"%d",filesize);
+				writesocket(sockfd,message);
+
+				//file is sent byte by byte 
+				for(i=0;i<filesize;i++)
+				{
+					read(srcFD,buff,1);
+					write(sockfd,buff,1);
+				}
+	
+				close(srcFD);
+				readsocket(sockfd,response);
+				sscanf(response,"%d%[^\n]",&code,message);
+
+			}
+				
 		}
+		else if(strcmp(command,"get")==0&&auth_flag==2)
+		{
 
-		//data transfer complete
-		pause[0]=1;						//end of data
-		write(sockfd,pause,10);
-		read(sockfd,temp,255);
-		close(srcFD);
-		printf("Transfer complete");
-	}
+			writesocket(sockfd,message);
+			strncpy(attribute,message+4,(strlen(message)));
+			/*
+				After writesocket(), message[] will have \n at its last position,
+				This is replaced by \0
+			*/
+			length=strlen(attribute);
+			attribute[length-1]='\0';
 
+			readsocket(sockfd,response);
+			sscanf(response,"%d%[^\n]",&code,message);
 
-
-
-
-
-}
-else if(command[0]=='g'&&command[1]=='e'&&command[2]=='t'&&strlen(command)>4)
-{
-	// to recieve a file from server directory to client directory
-	write(sockfd,command,strlen(command));
-
-	bzero(temp1,256);
-	bzero(temp,256);
-	bzero(leng,10);
-	bzero(pause,10);
-	pause[0]=0;
-	/*
-	used to indicate whether client is sending data to server
-	pause = -1 ::: no such file exists
-	pause = 0  ::: sending data
-	pause = 1  ::: end of data  
-	*/
-	strncpy(temp1,command+4,strlen(command));    //copy command[4] onwards to temp1
-
-	strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
-	strcat(temp,lpath);
-	strcat(temp,temp1);
+			if(strcmp(message,"Valid filename")==0)
+			{
+				filesize=code;
+				strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
+				strcat(temp,lpath);
+				strcat(temp,attribute);
 
 
-	read(sockfd,pause,10);
-	if(pause[0]==-1)
-	{
-		printf("invalid filename ");
-	}
-	else
-	{
-		/*
-			Open destination file with respective flags & modes
-			O_CREAT & O_TRUNC is to truncate existing file or create a new file
-			S_IXXXX are file permissions for the user,groups & others
-		*/
-		destFD = open(temp,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+				destFD = open(temp,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 
-		while(pause[0]==0)
-		{   
-		  write(sockfd,empty,1);
-		  bzero(leng,10);
-		  read(sockfd,leng,10);
-		  write(sockfd,empty,1);   
-		  read(sockfd,buff,1024);
-		  write(sockfd,empty,1);
-		  
-		  write(destFD,buff,leng[0]);     //write data to destination file
-		  
-		  read(sockfd,pause,10);
+				for(i=0;i<filesize;i++)
+				{
+					read(sockfd,buff,1);
+					write(destFD,buff,1);     //write data to destination file
+				}
+				close(destFD);
+				code=339;
+				strcpy(message,"File transfer completed");
+
+	        }
+	        else
+	        	code=331;
+	        		
+
+	         
 
 
+				
 		}
-		close(destFD);
-	    printf("Transfer complete");
-	}
+		else
+		{
+			writesocket(sockfd,message);
+			bzero(response,256);
+			readsocket(sockfd,response);
+			sscanf(response,"%d%[^\n]",&code,message);
+
+			//All other commands are inactive untill authentication ie.code is 219
+			if(code==219)
+				auth_flag=2;
+			if(code==209)
+				auth_flag=1;
+	
+			while(code==221)
+			{
+				printf("%s\n",message);
+				bzero(response,256);
+				readsocket(sockfd,response);
+				sscanf(response,"%d%[^\n]",&code,message);
+
+			}
+		}
+		
+		if(code==999&&auth_flag==0)
+			printf("Please Login to proceed\n");
+		else
+			printf("%d %s\n",code,message);
+	
+
+	}while(code!=0);
 
 
-
-
-
-
+	return 0;
 }	
-else
-	{
-		// If the entered command is not a local machine based command
-		write(sockfd,command,strlen(command));
 
-		bzero(resp,256);
-		read(sockfd,resp,255);
-		printf("%s",resp);
-
-		write(sockfd,empty,1);
-
-		bzero(op,256);
-		read(sockfd,op,255);
-		printf("%s",op);
-	}	
-
-
-
-}while(strcmp(command,"bye")!=0);
-
-}
-return 0;
-}
