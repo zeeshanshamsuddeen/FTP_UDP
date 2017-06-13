@@ -20,14 +20,11 @@ void readsocket(int newsockfd,char buffer[])
     char temp[1];
     bzero(temp,1);
     int i=0;
-    //printf("reading\n");
     do
     {
       read(newsockfd,temp,1);
       buffer[i]=temp[0];
-      i++;
-      //printf("%c",temp[0] );
-     
+      i++;     
     }while(temp[0]!='\n');
 
    
@@ -49,21 +46,18 @@ void writesocket(int newsockfd,char buffer[])
 {
   int length=0; 
   length=strlen(buffer);
-  //printf("the length is %d\n string is %s\n",length,buffer);
-//    buffer[length-1]='\n';
-
 
   buffer[length]='\n';
   buffer[length+1]='\0';
   length++;
   /*
-  printf("%d\n\n",length);
-  for(int i=0;i<=length;i++)
-  if(buffer[i]=='\n')
-    printf("new line in %dth position\n",i );
-  for(int i=0;i<=length;i++)
-  if(buffer[i]=='\0')
-    printf("new zero in %dth position",i );
+      printf("%d\n\n",length);
+      for(int i=0;i<=length;i++)
+      if(buffer[i]=='\n')
+        printf("new line in %dth position\n",i );
+      for(int i=0;i<=length;i++)
+      if(buffer[i]=='\0')
+        printf("new zero in %dth position",i );
   */
   write(newsockfd,buffer,length+1);
 
@@ -73,8 +67,6 @@ int main()
 {
   int sockfd, newsockfd, portno, clilen;
   struct sockaddr_in serv_addr, cli_addr;
-//  struct dirent  *dp;
-//  struct stat statbuf;
   struct stat fileStat;
 
   char command[256],attribute[256],names[256],buffer[256],response[256];
@@ -144,6 +136,13 @@ int main()
 
 do
 {
+      /*
+        auth_flag is used to indicate whether the user is authenticated or nor.
+        auth_flag = 0 : not authenticated
+        auth_flag = 1 : username verified, password required
+        auth_flag = 2 : user authenticated 
+      */
+        
       check_flag=0;
 
 
@@ -225,10 +224,10 @@ do
           //check whether the filename exists in the server directory
           while ( fgets( buff, BUFSIZ, fp ) != NULL ) 
           {
+            /*  Each file/folder name is retrieved and is sent to client   */
             bzero(response,256);
             length=0;
             length=strlen(buff);
-            //printf("length in main is %d\n",length );
             buff[length-1]='\0';
             sprintf(response,"%d%s",221,buff);
             writesocket(newsockfd,response);
@@ -236,12 +235,11 @@ do
           pclose(fp);
 
           sprintf(response,"%d%s",229,"List of files completed");
-          printf("%s\n",response );
           writesocket(newsockfd,response);
       }
 
 
-      if(strcmp(command,"cd")==0&&strcmp(attribute,"..")!=0&&auth_flag==2)
+      if(strcmp(command,"cd")==0&&strcmp(attribute,"..")!=0&&strcmp(attribute,"")!=0&&auth_flag==2)
       {
         check_flag=1;
         bzero(s_command,256);
@@ -272,9 +270,7 @@ do
 
       if(strcmp(command,"cd")==0&&strcmp(attribute,"..")==0&&auth_flag==2)
       {
-        /*
-          From spath, all the charecters after the rightmost '/' is cleared
-        */  
+        /*  From spath, all the charecters after the rightmost '/' is cleared   */  
         check_flag=1;
         if(strcmp(spath,"/")!=0)
         {
@@ -295,9 +291,10 @@ do
 
 
 
-      if(strcmp(command,"put")==0&&auth_flag==2)
+      if(strcmp(command,"put")==0&&message[4]!=' '&&strlen(message)>4&&auth_flag==2)
       {
           check_flag=1;
+
           readsocket(newsockfd,message);
           sscanf(message,"%d",&filesize);
 
@@ -311,7 +308,6 @@ do
           for(i=0;i<filesize;i++)
           {
            read(newsockfd,buff,1);
-           //printf("%s\n",*buff );
            write(destFD,buff,1);     //write data to destination file
           }
           close(destFD);
@@ -321,7 +317,7 @@ do
 
       }
 
-      if(strcmp(command,"get")==0&&auth_flag==2)
+      if(strcmp(command,"get")==0&&message[4]!=' '&&strlen(message)>4&&auth_flag==2)
       {
         check_flag=1;
         strcpy(temp,"/home/zeeshan/FTP_UDP/obj/server");
@@ -354,7 +350,11 @@ do
         }  
       }
 
-  
+      if(strcmp(command,"bye")==0)
+      {
+        sprintf(response,"%d%s",0,"Exit");
+        writesocket(newsockfd,response);
+      }
 
       if(check_flag==0&&auth_flag!=1)
       {
@@ -369,11 +369,7 @@ do
       }
 
 
-      if(strcmp(command,"bye")==0)
-      {
-        sprintf(response,"%d%s",0,"Exit");
-        writesocket(newsockfd,response);
-      }
+      
 
   }while(strcmp(command,"bye")!=0);
 

@@ -23,23 +23,20 @@ void readsocket(int sockfd,char buffer[])
     char temp[1];
     bzero(temp,1);
     int i=0;
-    //printf("reading\n");
     do
     {
       read(sockfd,temp,1);
       buffer[i]=temp[0];
       i++;
       //printf("%c",temp[0] );
-     // if(temp[0]=='\n')
-     // printf("new line received" );
+     
     }while(temp[0]!='\n');
 
    
       
     read(sockfd,temp,1);
-     //if(temp[0]=='\n')
-     // printf("new line received" );
-
+    //if(temp[0]=='\n')
+    // printf("new line received" );
       
     if(temp[0]!='\0')
       {
@@ -55,21 +52,18 @@ void writesocket(int sockfd,char buffer[])
 {
 	int length;	
 	length=strlen(buffer);
-//	  buffer[length-1]='\n';
-	//printf("%c",buffer[5]);
-	//printf("%d",length);
-
+	
 	buffer[length]='\n';
 	buffer[length+1]='\0';
 	length++;
 	/*
-	printf("%d",length);
-	for(int i=0;i<=length;i++)
-	if(buffer[i]=='\n')
-		printf("new line in %dth position\n",i );
-	for(int i=0;i<=length;i++)
-	if(buffer[i]=='\0')
-		printf("new zero in %dth position",i );
+		printf("%d",length);
+		for(int i=0;i<=length;i++)
+		if(buffer[i]=='\n')
+			printf("new line in %dth position\n",i );
+		for(int i=0;i<=length;i++)
+		if(buffer[i]=='\0')
+			printf("new zero in %dth position",i );
 	*/
 	write(sockfd,buffer,length+1);
 
@@ -145,6 +139,13 @@ int main(int argc,char *argv[])
 
 	do
 	{
+
+		/*
+			auth_flag is used to indicate whether the user is authenticated or nor.
+			auth_flag = 0 : not authenticated
+			auth_flag = 1 : username verified, password required
+			auth_flag = 2 : user authenticated 
+		*/
 				
 		bzero(message,256);
 		bzero(command,256);
@@ -152,9 +153,8 @@ int main(int argc,char *argv[])
 
 		readline(message);
 		sscanf(message,"%s%s",command,attribute);
-	
 
-		if(strcmp(command,"!ls")==0&&strcmp(attribute,"\0\n")==0&&message[4]!=' '&&auth_flag==2)
+		if(strcmp(command,"!ls")==0&&strlen(message)<4&&message[4]!=' '&&auth_flag==2)
 		{
 			char buff[BUFSIZ];
 			bzero(l_command,256);
@@ -165,6 +165,7 @@ int main(int argc,char *argv[])
 			//check whether the filename exists in the server directory
 			while ( fgets( buff, BUFSIZ, fp ) != NULL ) 
 			{
+	            /*  Each file/folder name is retrieved and is printed   */
 				bzero(response,256);
 				length=0;
 				length=strlen(buff);
@@ -175,7 +176,7 @@ int main(int argc,char *argv[])
 			code=129;
 			strcpy(message,"List of files completed");
 		}
-		else if(strcmp(command,"lcd")==0&&strcmp(attribute,"..")!=0&&message[4]!=' '&&message[4]!='.'&&auth_flag==2)
+		else if(strcmp(command,"lcd")==0&&strcmp(attribute,"..")!=0&&message[4]!='.'&&strcmp(attribute,"\0\n")!=0&&auth_flag==2)
 		{
 			strncpy(attribute,message+4,strlen(message));
 			bzero(l_command,256);
@@ -198,16 +199,14 @@ int main(int argc,char *argv[])
 			 }
 		
 		}
-		else if(strcmp(command,"!pwd")==0&&strcmp(attribute,"\0\n")==0&&message[4]!=' '&&auth_flag==2)
+		else if(strcmp(command,"!pwd")==0&&strlen(message)<5&&message[4]!=' '&&auth_flag==2)
 		{
 			code=149;
 			strcpy(message,lpath);
 		}
 		else if(strcmp(command,"lcd")==0&&strcmp(attribute,"..")==0&&auth_flag==2)
 		{
-			/*
-				From lpath, all the charecters after the rightmost '/' is cleared
-			*/
+			/*	From lpath, all the charecters after the rightmost '/' is cleared	*/
 			if(strcmp(lpath,"/")!=0)
 	        {
 	          length=0;
@@ -225,9 +224,8 @@ int main(int argc,char *argv[])
 	        strcpy(message,"Directory successfully changed");
 
 		}
-		else if(strcmp(command,"put")==0&&auth_flag==2)
+		else if(strcmp(command,"put")==0&&message[4]!=' '&&strlen(message)>4&&auth_flag==2)
 		{
-
 			strncpy(attribute,message+4,strlen(message));
 			
 			strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
@@ -265,7 +263,7 @@ int main(int argc,char *argv[])
 			}
 				
 		}
-		else if(strcmp(command,"get")==0&&auth_flag==2)
+		else if(strcmp(command,"get")==0&&message[4]!=' '&&strlen(message)>4&&auth_flag==2)
 		{
 
 			writesocket(sockfd,message);
@@ -303,10 +301,6 @@ int main(int argc,char *argv[])
 	        else
 	        	code=331;
 	        		
-
-	         
-
-
 				
 		}
 		else
@@ -316,14 +310,15 @@ int main(int argc,char *argv[])
 			readsocket(sockfd,response);
 			sscanf(response,"%d%[^\n]",&code,message);
 
-			//All other commands are inactive untill authentication ie.code is 219
+			//All other commands are inactive untill authentication is successful ie.code is 219
 			if(code==219)
 				auth_flag=2;
 			if(code==209)
 				auth_flag=1;
 	
 			while(code==221)
-			{
+			{	
+				/* When the server is sending the file/folder names for ls command */
 				printf("%s\n",message);
 				bzero(response,256);
 				readsocket(sockfd,response);
