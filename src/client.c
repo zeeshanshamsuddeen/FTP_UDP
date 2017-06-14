@@ -92,13 +92,16 @@ int main(int argc,char *argv[])
 	char command[256],command2[256],response[256],attribute[256];
 	char l_command[256],enquiry[256];
 	char resp[256],op[256],empty[256]="";
-	char temp[256],temp1[256],lpath[256]="/",names[256];
+	char temp[256],temp1[256],temp_path[256],lpath[256]="/",names[256];
+	char USER[256];
+
 	int length,i;
 	int code;
 	int iSetOption = 1;
 	int leng[10],pause[10];
 	int filesize;
 	int auth_flag=0,af[1];
+
 
 	char buffer[256];
 	portno = 5001;
@@ -158,7 +161,8 @@ int main(int argc,char *argv[])
 		{
 			char buff[BUFSIZ];
 			bzero(l_command,256);
-			strcpy(l_command,"ls /home/zeeshan/FTP_UDP/obj/client");
+			strcpy(l_command,"ls /home/zeeshan/FTP_UDP/obj/client/");
+			strcat(l_command,USER);
 			strcat(l_command,lpath);
 
 			FILE *fp = popen(l_command,"r");
@@ -179,13 +183,14 @@ int main(int argc,char *argv[])
 		else if(strcmp(command,"lcd")==0&&strcmp(attribute,"..")!=0&&message[4]!='.'&&strcmp(attribute,"\0\n")!=0&&auth_flag==2)
 		{
 			strncpy(attribute,message+4,strlen(message));
-			bzero(l_command,256);
-			strcpy(l_command,"/home/zeeshan/FTP_UDP/obj/client");
-			strcat(l_command,lpath);
-			strcat(l_command,attribute);
+			bzero(temp_path,256);
+			strcpy(temp_path,"/home/zeeshan/FTP_UDP/obj/client/");
+			strcat(temp_path,USER);
+			strcat(temp_path,lpath);
+			strcat(temp_path,attribute);
 
-			//check whether the FOLDER (path is in l_command) exists in the server directory
-			if(stat(l_command,&fileStat)==0 && S_ISDIR(fileStat.st_mode))  
+			//check whether the FOLDER (path is in temp_path) exists in the server directory
+			if(stat(temp_path,&fileStat)==0 && S_ISDIR(fileStat.st_mode))  
 			  {
 			    strcat(lpath,attribute);
 			    strcat(lpath,"/");
@@ -228,12 +233,13 @@ int main(int argc,char *argv[])
 		{
 			strncpy(attribute,message+4,strlen(message));
 			
-			strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
-			strcat(temp,lpath);
-			strcat(temp,attribute);
+			strcpy(temp_path,"/home/zeeshan/FTP_UDP/obj/client/");
+			strcat(temp_path,USER);
+			strcat(temp_path,lpath);
+			strcat(temp_path,attribute);
 
-			//opens the directory (path is in temp)
-			srcFD = open(temp,O_RDONLY);
+			//opens the directory (path is in temp_path)
+			srcFD = open(temp_path,O_RDONLY);
 			if(srcFD==-1)
 			{
 				code=321;
@@ -242,7 +248,7 @@ int main(int argc,char *argv[])
 			else
 			{
 				writesocket(sockfd,message);
-				stat(temp, &fileStat);
+				stat(temp_path, &fileStat);
 
 				//size of file is calculated in filesize and sent to the server
 				filesize = fileStat.st_size;
@@ -281,12 +287,13 @@ int main(int argc,char *argv[])
 			if(strcmp(message,"Valid filename")==0)
 			{
 				filesize=code;
-				strcpy(temp,"/home/zeeshan/FTP_UDP/obj/client");
-				strcat(temp,lpath);
-				strcat(temp,attribute);
+				strcpy(temp_path,"/home/zeeshan/FTP_UDP/obj/client/");
+				strcat(temp_path,USER);
+				strcat(temp_path,lpath);
+				strcat(temp_path,attribute);
 
 
-				destFD = open(temp,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+				destFD = open(temp_path,O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 
 				for(i=0;i<filesize;i++)
 				{
@@ -312,7 +319,12 @@ int main(int argc,char *argv[])
 
 			//All other commands are inactive untill authentication is successful ie.code is 219
 			if(code==219)
+			{
 				auth_flag=2;
+				strcpy(USER,message);
+				readsocket(sockfd,response);
+				sscanf(response,"%d%[^\n]",&code,message);
+			}	
 			if(code==209)
 				auth_flag=1;
 	
