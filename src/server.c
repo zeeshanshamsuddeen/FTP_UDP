@@ -5,7 +5,6 @@
 #include <netinet/in.h>
 #include <dirent.h>
 #include <string.h>
-
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/sendfile.h>
