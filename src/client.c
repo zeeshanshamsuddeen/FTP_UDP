@@ -57,13 +57,55 @@ int srcFD,destFD,nbread,nbwrite;
 char *buff[1024];
 
 
+/*
+GetPeerName() is used to determine who is the client connected to your socket.
+
+GetSockName() is used to determine your own socket properties like which port what IP addresses is the socket bound to
+and the your own machine's port number.
+
+*/
+void get_sock_details_sockname(int sockfd){
+  struct sockaddr_in addr_ = {0};
+  socklen_t addr_size_ = sizeof(struct sockaddr_in);
+  int res = getsockname(sockfd, (struct sockaddr *)&addr_, &addr_size_);
+  char clientip[20]= {0};
+  strcpy(clientip, inet_ntoa(addr_.sin_addr));
+  printf("sockname : %d : %s \n",ntohs(addr_.sin_port), clientip );
+}
+
+void get_sock_details_peername(int sockfd){
+  struct sockaddr_in addr_ = {0};
+  socklen_t addr_size = sizeof(struct sockaddr_in);
+  int res = getpeername(sockfd, (struct sockaddr *)&addr_, &addr_size);
+  char clientip[20]= {0};
+  strcpy(clientip, inet_ntoa(addr_.sin_addr));
+  printf("peername : %d : %s \n",ntohs(addr_.sin_port), clientip );
+
+}
+
+/* function used to return local port number */
+int get_sock_details_sockname_port(int sockfd){
+  struct sockaddr_in addr_ = {0};
+  socklen_t addr_size_ = sizeof(struct sockaddr_in);
+  int res = getsockname(sockfd, (struct sockaddr *)&addr_, &addr_size_);
+  char clientip[20]= {0};
+  strcpy(clientip, inet_ntoa(addr_.sin_addr));
+  return ntohs(addr_.sin_port);
+}
+
+
+
+
+
+
+
+
 
 int main(int argc,char *argv[])
 {
 	int newsockfd,sockfd, portno;
 	
-	portno = 5001;
-
+	portno = 5002;
 
 
 
@@ -87,15 +129,26 @@ int main(int argc,char *argv[])
 
 	bzero((char *) &serv_addr, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(portno);
+	serv_addr.sin_port = htons(portno);			// this is the port number of server to which client is going to connect
+	printf("%d\n",serv_addr.sin_port );
 	bcopy((char *)&inp , (char *)&serv_addr.sin_addr.s_addr, sizeof(inp));
 
-	/* Now connect to the server */
+	/* Now connect to the server 
+		connect does a handshake with server thru the client system's port as source and server port and IP as destination
+		after connect(), the socket will be binded with the machine's(client) port and machine's IP address , the remote
+		details will also be configured based on the server's ip and port.
+
+	*/
 	if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) 
 	{
 		perror("ERROR connecting");
 		exit(1);
 	}
+
+
+	get_sock_details_sockname(sockfd);
+	get_sock_details_peername(sockfd);
+
 
 	do
 	{
@@ -106,7 +159,6 @@ int main(int argc,char *argv[])
 			auth_flag = 1 : username verified, password required
 			auth_flag = 2 : user authenticated 
 		*/
-				
 		bzero(message,256);
 		bzero(command,256);
 		bzero(attribute,256);
@@ -128,6 +180,7 @@ int main(int argc,char *argv[])
 			fn_get(sockfd);
 		else
 		{
+
 			writesocket(sockfd,message);
 			bzero(response,256);
 			readsocket(sockfd,response);
@@ -243,7 +296,7 @@ void fn_ls()
 {
 	char buff[BUFSIZ];
 	bzero(l_command,256);
-	strcpy(l_command,"ls /home/zeeshan/FTP_UDP/obj/client/");
+	strcpy(l_command,"ls /home/zeeshan/File-Transfer-Protocol/obj/client/");
 	strcat(l_command,USER);
 	strcat(l_command,lpath);
 
@@ -268,7 +321,7 @@ void fn_lcd()
 {
 	strncpy(attribute,message+4,strlen(message));
 	bzero(temp_path,256);
-	strcpy(temp_path,"/home/zeeshan/FTP_UDP/obj/client/");
+	strcpy(temp_path,"/home/zeeshan/File-Transfer-Protocol/obj/client/");
 	strcat(temp_path,USER);
 	strcat(temp_path,lpath);
 	strcat(temp_path,attribute);
@@ -321,7 +374,7 @@ void fn_put(int sockfd)
 {
 	strncpy(attribute,message+4,strlen(message));
 
-	strcpy(temp_path,"/home/zeeshan/FTP_UDP/obj/client/");
+	strcpy(temp_path,"/home/zeeshan/File-Transfer-Protocol/obj/client/");
 	strcat(temp_path,USER);
 	strcat(temp_path,lpath);
 	strcat(temp_path,attribute);
@@ -351,6 +404,7 @@ void fn_put(int sockfd)
 		}
 
 		close(srcFD);
+		bzero(response,256);
 		readsocket(sockfd,response);
 		sscanf(response,"%d%[^\n]",&code,message);
 
@@ -377,8 +431,8 @@ void fn_get(int sockfd)
 
 	if(strcmp(message,"Valid filename")==0)
 	{
-		sprintf(message,"%d",6000);
-		writesocket(sockfd,message);
+
+	
 		filesize=code;
 
 
@@ -395,16 +449,35 @@ void fn_get(int sockfd)
 			   
 			   temp_serv_addr.sin_family = AF_INET;
 			   temp_serv_addr.sin_addr.s_addr = INADDR_ANY;
-			   temp_serv_addr.sin_port = htons(6000);
+			   temp_serv_addr.sin_port = htons(0);
+
+
+				
+
 
 			   setsockopt(temp_sockfd, SOL_SOCKET, SO_REUSEADDR,&iSetOption,sizeof(iSetOption));
 
 			   
+
+			   /* since sin_port is set as 0, a random unused port will be binded with socket when bind() is called */
 			   /* Now bind the host address using bind() call.*/
 			   if (bind(temp_sockfd, (struct sockaddr *) &temp_serv_addr, sizeof(temp_serv_addr)) < 0) {
 			      perror("ERROR on binding");
 			      exit(1);
 			   }
+
+			   get_sock_details_sockname(temp_sockfd);
+			   get_sock_details_peername(temp_sockfd);
+			
+
+			   bzero(message,256);
+				/* space after PORT is used to differentiate it from integer preceding it 
+					local port number of temp_sockfd is passed to SERVER
+				*/
+				sprintf(message,"%s%d","PORT ",get_sock_details_sockname_port(temp_sockfd));
+				writesocket(sockfd,message);
+
+
 			      
 			   /* Now start listening for the clients, here process will
 			      * go in sleep mode and will wait for the incoming connection
@@ -422,7 +495,7 @@ void fn_get(int sockfd)
 			   }
 
 
-		strcpy(temp_path,"/home/zeeshan/FTP_UDP/obj/client/");
+		strcpy(temp_path,"/home/zeeshan/File-Transfer-Protocol/obj/client/");
 		strcat(temp_path,USER);
 		strcat(temp_path,lpath);
 		strcat(temp_path,attribute);
