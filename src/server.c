@@ -119,7 +119,7 @@ void get_sock_details_sockname(int sockfd){
   int res = getsockname(sockfd, (struct sockaddr *)&addr_, &addr_size_);
   char clientip[20]= {0};
   strcpy(clientip, inet_ntoa(addr_.sin_addr));
-  printf("sockname : %d : %s \n",ntohs(addr_.sin_port), clientip );
+  //printf("sockname : %d : %s \n",ntohs(addr_.sin_port), clientip );
 }
 
 void get_sock_details_peername(int sockfd){
@@ -128,7 +128,7 @@ void get_sock_details_peername(int sockfd){
   int res = getpeername(sockfd, (struct sockaddr *)&addr_, &addr_size);
   char clientip[20]= {0};
   strcpy(clientip, inet_ntoa(addr_.sin_addr));
-  printf("peername : %d : %s \n",ntohs(addr_.sin_port), clientip );
+  //printf("peername : %d : %s \n",ntohs(addr_.sin_port), clientip );
 
 }
 
@@ -199,8 +199,8 @@ int main()
 
 
   
-    get_sock_details_sockname(master_sockfd);
-    get_sock_details_peername(master_sockfd);
+    //get_sock_details_sockname(master_sockfd);
+    //get_sock_details_peername(master_sockfd);
 
   /* Now start listening for the clients, here process will
      * go in sleep mode and will wait for the incoming connection
@@ -236,7 +236,7 @@ int main()
   
         //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
         activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
-        printf("activity \n");
+        //printf("activity \n");
 
         if ((activity < 0) && (errno!=EINTR)) 
         {
@@ -292,7 +292,7 @@ int main()
                   
              
                   readsocket(newsockfd);
-                  printf("buffer is %s\n",client[pos].buffer );
+                  //printf("buffer is %s\n",client[pos].buffer );
 
                   if(client[pos].command_flag == 1){
 
@@ -301,7 +301,7 @@ int main()
 
                     sscanf(client[pos].buffer,"%s%[^\n]",command,attribute);
 
-                    printf("command : %s, attribute: %s\n",command,attribute);
+                    //printf("command : %s, attribute: %s\n",command,attribute);
                     /*
                     attribute will have a white space at the beginning,
                     This white space is removed
@@ -385,14 +385,14 @@ void readsocket(int newsockfd)
     bzero(temp,1);
    
     read(newsockfd,temp,1);
-    printf("received packet is %s\n",temp );
+    //printf("received packet is %s\n",temp );
 
     //checks whether the obtained string has pattern \n\0, if So, \n is replaced by \0
     if(temp[0] == '\0' &&  client[pos].buffer[client[pos].buffer_size-1] == '\n'){
           client[pos].command_flag = 1;
           client[pos].buffer_size--;
           client[pos].buffer[client[pos].buffer_size] = '\0';
-          printf("buffer size %d\n",client[pos].buffer_size);
+          //printf("buffer size %d\n",client[pos].buffer_size);
     }
     else
       strcat(client[pos].buffer,temp);
@@ -571,7 +571,7 @@ void fn_put(int newsockfd)
 
     for(i=0;i<client[pos].filesize;i++)
     {
-      read(newsockfd,buff,1);
+      read(newsockfd,buff,1); //read from socket
       write(destFD,buff,1);     //write data to destination file
     }
     close(destFD);
@@ -651,7 +651,7 @@ void fn_get_data(int newsockfd){
         bzero((char *) &temp_serv_addr, sizeof(temp_serv_addr));
         temp_serv_addr.sin_family = AF_INET;
         temp_serv_addr.sin_port = htons(client[pos].port_number);
-        printf("%d\n",temp_serv_addr.sin_port );
+        //printf("%d\n",temp_serv_addr.sin_port );
 
         bcopy((char *)server->h_addr, (char *)&temp_serv_addr.sin_addr.s_addr, server->h_length);
 
@@ -664,7 +664,7 @@ void fn_get_data(int newsockfd){
           exit(1);
         }
 
-         printf("socket number is %d\n",temp_sockfd );
+         //printf("socket number is %d\n",temp_sockfd );
 
       //file is sent byte by byte
       for(i=0;i<filesize;i++)

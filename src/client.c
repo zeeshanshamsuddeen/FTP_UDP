@@ -70,7 +70,7 @@ void get_sock_details_sockname(int sockfd){
   int res = getsockname(sockfd, (struct sockaddr *)&addr_, &addr_size_);
   char clientip[20]= {0};
   strcpy(clientip, inet_ntoa(addr_.sin_addr));
-  printf("sockname : %d : %s \n",ntohs(addr_.sin_port), clientip );
+  //printf("sockname : %d : %s \n",ntohs(addr_.sin_port), clientip );
 }
 
 void get_sock_details_peername(int sockfd){
@@ -79,7 +79,7 @@ void get_sock_details_peername(int sockfd){
   int res = getpeername(sockfd, (struct sockaddr *)&addr_, &addr_size);
   char clientip[20]= {0};
   strcpy(clientip, inet_ntoa(addr_.sin_addr));
-  printf("peername : %d : %s \n",ntohs(addr_.sin_port), clientip );
+  //printf("peername : %d : %s \n",ntohs(addr_.sin_port), clientip );
 
 }
 
@@ -121,7 +121,7 @@ int main(int argc,char *argv[])
 
 
 
-	if (inet_aton((argv[1]),&inp) ==0) 		// returns pointer to corresponding host
+	if (inet_aton((argv[1]),&inp) ==0) 		// returns pointer to corresponding host (network address)
 	{
 		fprintf(stderr,"ERROR, no such host\n");
 		exit(0);
@@ -130,7 +130,7 @@ int main(int argc,char *argv[])
 	bzero((char *) &serv_addr, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(portno);			// this is the port number of server to which client is going to connect
-	printf("%d\n",serv_addr.sin_port );
+	//printf("%d\n",serv_addr.sin_port );
 	bcopy((char *)&inp , (char *)&serv_addr.sin_addr.s_addr, sizeof(inp));
 
 	/* Now connect to the server 
@@ -146,8 +146,8 @@ int main(int argc,char *argv[])
 	}
 
 
-	get_sock_details_sockname(sockfd);
-	get_sock_details_peername(sockfd);
+	//get_sock_details_sockname(sockfd);
+	//get_sock_details_peername(sockfd);
 
 
 	do
@@ -341,8 +341,10 @@ void fn_lcd()
 	 }
 
 	}
-	void fn_pwd()
-	{
+
+
+void fn_pwd()
+{
 	code=149;
 	strcpy(message,lpath);
 }
